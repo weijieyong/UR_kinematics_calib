@@ -1,0 +1,10 @@
+[project]
+name = "calib_ik"
+version = "0.0.1"
+description = "High-accuracy Python FK & IK solver for UR5 with calibrated DH parameters"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=2.2.5",
+    "scipy>=1.15.3",
+]
