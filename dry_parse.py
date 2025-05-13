@@ -22,7 +22,7 @@ def load_calibration(calib_path: str):
     if int(mount.get("calibration_status", "0").split()[0]) != 2:
         print("Warning: Calibration status not 2 (Linearised).")
     return (
-        np.array(parse_conf_list(mount.get(k, "[0,0,0,0,0,0]")))
+        np.array(parse_conf_list(mount.get(k, "[0,0,0,0,0,0]")), dtype=np.float64)
         for k in ["delta_theta", "delta_a", "delta_d", "delta_alpha"]
     )
 
@@ -34,9 +34,9 @@ def load_urcontrol_config(ur_path: str):
     dh = config["DH"]
     tool = config["Tool"]
     return (
-        np.array(parse_conf_list(dh.get(k, "[0,0,0,0,0,0]")))
+        np.array(parse_conf_list(dh.get(k, "[0,0,0,0,0,0]")), dtype=np.float64)
         for k in ["a", "d", "alpha", "q_home_offset", "joint_direction"]
-    ), np.array(parse_conf_list(tool.get("tcp_pose", "[0,0,0,0,0,0]")))
+    ), np.array(parse_conf_list(tool.get("tcp_pose", "[0,0,0,0,0,0]")), dtype=np.float64)
 
 
 def dh_matrix(a: float, alpha: float, d: float, theta: float) -> np.ndarray:
