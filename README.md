@@ -22,7 +22,7 @@ Managed with [uv](https://github.com/astral-sh/uv):
 ## Usage
 
 ```bash
-uv run dry_parse.py --joints_measured 20.72,-114.77,87.42,-62.33,-89.47,-68.88,-205.16,-220.39,628.03,0.018,3.137,-0.002
+uv run dry_parse.py --compare 20.72,-114.77,87.42,-62.33,-89.47,-68.88,-205.16,-220.39,628.03,0.018,3.137,-0.002
 ```
 
 ## Test
