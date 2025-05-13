@@ -3,35 +3,73 @@ import csv
 import subprocess
 import sys
 import os
+import re
+
+from rich.console import Console
+from rich.table import Table
+
+# Thresholds
+THRESH_POS = 0.08  # mm
+THRESH_ROT = 0.03  # deg
+
 
 def main():
-    # locate paths relative to this script
+    # Locate paths relative to this script
     root = os.path.dirname(os.path.abspath(__file__))
-    csv_path = os.path.join(root, 'data', 'joint-eef-data.csv')
-    script_path = os.path.join(root, 'dry_parse.py')
+    csv_path = os.path.join(root, "data", "joint-eef-data.csv")
+    script_path = os.path.join(root, "dry_parse.py")
 
-    # open CSV and iterate rows
-    with open(csv_path, newline='') as csvfile:
+    console = Console()
+    table = Table(title="Calibration Test Results")  # build table object[2]
+    table.add_column("Test", justify="left", style="cyan")
+    table.add_column("Pos (mm)", justify="right")
+    table.add_column("Pos OK", justify="center")
+    table.add_column("Rot (°)", justify="right")
+    table.add_column("Rot OK", justify="center")
+
+    # Read CSV and gather results
+    with open(csv_path, newline="") as csvfile:
         reader = csv.reader(csvfile)
-        # Uncomment the next line to skip header row
-        # next(reader, None)
         for row in reader:
-            line = ','.join(row)
-            print(f"Running test for: {line}")
-            # invoke dry_parse.py for each line
+            test_name = ",".join(row)
+            # Run the comparison script
             proc = subprocess.run(
-                [sys.executable, script_path, "--compare", line],
+                [sys.executable, script_path, "--compare", test_name],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                text=True
+                text=True,
             )
-            # print outputs
-            if proc.stdout:
-                print(proc.stdout)
+
+            # Extract numeric errors
+            pos_match = re.search(r"Norm \(mm\):\s*([0-9.\-]+)", proc.stdout)
+            rot_match = re.search(r"Rot Error \(deg\):\s*([0-9.\-]+)", proc.stdout)
+            if not pos_match or not rot_match:
+                continue
+
+            pos = float(pos_match.group(1))
+            rot = float(rot_match.group(1))
+            ok_pos = pos <= THRESH_POS
+            ok_rot = rot <= THRESH_ROT
+
+            # Color‐coded status using Rich markup[4]
+            pos_flag = "[green]PASS[/]" if ok_pos else "[red]FAIL[/]"
+            rot_flag = "[green]PASS[/]" if ok_rot else "[red]FAIL[/]"
+
+            table.add_row(
+                test_name,
+                f"{pos:.4f}",
+                pos_flag,
+                f"{rot:.4f}",
+                rot_flag,
+            )
+
+            # Print any stderr messages immediately
             if proc.stderr:
-                print(proc.stderr, file=sys.stderr)
+                console.print(f"[bold red]{proc.stderr.strip()}[/]")
 
-    print("All tests completed.")
+    # Render the final table
+    console.print(table)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()
