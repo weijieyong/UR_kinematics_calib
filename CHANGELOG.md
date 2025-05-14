@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.0] - 2025-05-14
+
+### Added
+- Inverse kinematics (IK) related tests and scripts
+- Forward kinematics (FK) benchmark script.
+- Script to run all tests at once.
+- Test section in README for running all tests.
+
+### Changed
+- Project layout restructured
+- Updated dependencies and enhanced test output formatting.
+- Updated build-related files.
+
+### Refactored
+- Codebase refactored for style and structure improvements (including ruff compliance).
+
 ## [0.0.1] - 2025-05-13
 
 ### Added

@@ -75,3 +75,17 @@ uv run tests/dry_parse.py --compare 1.54,-28.43,24.41,-130.54,-37.17,-147.01,-87
     - minimum of 0.0169 mm to a maximum of 0.0800 mm.
 - Rot error (deg): under 0.032 deg
     - minimum of 0.0119 deg to a maximum of 0.0317 deg.
+    
+--- FK Benchmark Results ---
+Number of iterations: 10000
+Average FK calculation time: 0.0334 ms
+Min FK calculation time: 0.0305 ms
+Max FK calculation time: 0.3334 ms
+
+--- IK Benchmark Results ---
+Number of iterations: 1000
+Average IK calculation time: 8.8979 ms
+Min IK calculation time: 3.8058 ms
+Max IK calculation time: 80.4694 ms
+Successful IK solutions: 1000/1000 (100.00%)
+Failed IK solutions (no convergence): 0
