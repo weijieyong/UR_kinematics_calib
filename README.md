@@ -7,7 +7,7 @@ High-accuracy Python FK & IK solver for UR5 with calibrated DH parameters.
 **Note on current IK Implementation:**
 - The current inverse kinematics (IK) solver may converge at local minima depending on the initial guess provided. This is a known limitation of the present approach.
 - **Future Plan:** There are plans to integrate a more robust IK solver to improve reliability and global convergence.
-- **Analytical IK Research:** A [summary](docs/Executive Summary by Deep Research.pdf) on analytical IK using calibrated data has been added, based on Deep Research by ChatGPT.
+- **Analytical IK Research:** A [summary](docs/Summary-Deep-Research.pdf) on analytical IK using calibrated data has been added, based on Deep Research by ChatGPT.
 ---
 
 ## Project Structure
