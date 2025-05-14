@@ -4,10 +4,23 @@ High-accuracy Python FK & IK solver for UR5 with calibrated DH parameters.
 
 ---
 
-**Note on current IK Implementation:**
-- The current inverse kinematics (IK) solver may converge at local minima depending on the initial guess provided. This is a known limitation of the present approach.
-- **Future Plan:** There are plans to integrate a more robust IK solver to improve reliability and global convergence.
-- **Analytical IK Research:** A [summary](docs/Summary-Deep-Research.pdf) on analytical IK using calibrated data has been added, based on Deep Research by ChatGPT.
+## IK Implementation Status
+
+**Current Limitations:**
+- The current inverse kinematics (IK) solver uses a numerical optimization approach that may converge at local minima
+- Results are sensitive to the initial joint configuration guess
+- While accurate when converged correctly, the solver can produce suboptimal solutions in certain configurations
+
+**Future Plans:**
+- Integrate more robust IK solvers to improve reliability and global convergence
+- Evaluating industry-standard options including:
+  - [QuIK](https://github.com/steffanlloyd/quik) - An ultra-fast and highly robust kinematics library for C++ or ROS2 using DH parameters.
+  - [TRAC-IK](https://bitbucket.org/traclabs/trac_ik) - Enhanced solver with better convergence than KDL's default
+- Continue research on analytical methods for calibrated UR robots
+
+**Research Resources:**
+- [Analytical IK Research Summary](docs/Summary-Deep-Research.pdf) - Investigation into analytical IK approaches for calibrated parameters
+
 ---
 
 ## Project Structure
@@ -18,7 +31,11 @@ ur_kinematics_calib/
 ├── data/                # UR capture data (joint angles & EEF poses)
 ├── docs/                # documentation and plans
 ├── scripts/             # demo scripts
-│   └── fk_demo.py       # forward kinematics demo
+│   ├── fk_demo.py       # forward kinematics demo
+│   ├── ik_demo.py       # inverse kinematics demo
+│   ├── benchmark_fk.py  # benchmarks FK performance over many iterations
+│   ├── benchmark_ik.py  # benchmarks IK solver speed and success rate
+│   └── fk_ik_check.py   # full FK-to-IK validation
 ├── src/                 # package source
 │   └── ur_kinematics_calib/
 │       ├── util.py
@@ -39,28 +56,33 @@ Managed with [uv](https://github.com/astral-sh/uv):
 
 ## Usage
 
+### Forward Kinematics
 Run the FK demo with:
 ```bash
 uv run scripts/fk_demo.py -j 1.54,-28.43,24.41,-130.54,-37.17,-147.01
 ```
 
+### Inverse Kinematics
 Run the IK demo:
 ```bash
 uv run scripts/ik_demo.py -p 159.13,-317.1,413.36,1.266,-3.32,-0.283
 ```
 
+### Validation
 Run IK check with:
 ```bash
 uv run scripts/fk_ik_check.py -j 31.64,-117.58,104.85,-77.19,-82.32,-58.4
 ```
 
 > [!NOTE]  
-> arguments:   
+> Command Arguments:   
 > `fk_demo.py` -j <deg1,deg2,deg3,deg4,deg5,deg6>  
+> `ik_demo.py` -p <x,y,z,rx,ry,rz>  
 > `fk_ik_check.py` -j <deg1,deg2,deg3,deg4,deg5,deg6>
 
-Run the test with:
+### Testing
 
+Run all tests with:
 ```bash
 uv run tests/run_all_tests.py
 ```
@@ -70,11 +92,15 @@ Compare calculated FK result with actual pose:
 uv run tests/dry_parse.py --compare 1.54,-28.43,24.41,-130.54,-37.17,-147.01,-872.69,-236.61,417.99,1.344,-1.557,0.494
 ```
 
-### Result
-- Pos error norm(mm): under 0.08 mm
-    - minimum of 0.0169 mm to a maximum of 0.0800 mm.
-- Rot error (deg): under 0.032 deg
-    - minimum of 0.0119 deg to a maximum of 0.0317 deg.
+## Performance
+
+### FK Accuracy: comparing calculated value with UR controller value
+- **Position error (mm):** under 0.08 mm
+  - minimum: 0.0169 mm, maximum: 0.0800 mm
+- **Rotation error (deg):** under 0.032 deg
+  - minimum: 0.0119 deg, maximum: 0.0317 deg
+
+### Benchmark Results
 ```
 --- FK Benchmark Results ---
 Number of iterations: 10000
