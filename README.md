@@ -1,11 +1,11 @@
-# calib_ik
+# UR_kinematics_calib
 
 High-accuracy Python FK & IK solver for UR5 with calibrated DH parameters.
 
 ## Project Structure
 
 ```
-calib_ik/
+ur_kinematics_calib/
 ├── configs/             # calibration and UR control files
 ├── data/                # UR capture data (joint angles & EEF poses)
 ├── docs/                # documentation and plans
@@ -26,14 +26,10 @@ calib_ik/
 
 Managed with [uv](https://github.com/astral-sh/uv):
 
+> [!NOTE]  
+> uv will create a venv and install the required dependencies with: `uv run ..`
 
 ## Usage
-
-Setup venv and install the package with:
-
-```bash
-uv venv && uv pip install -e .
-```
 
 Run the FK demo with:
 ```bash
@@ -46,7 +42,7 @@ uv run tests/dry_parse.py --compare 1.54,-28.43,24.41,-130.54,-37.17,-147.01,-87
 ```
 
 > [!NOTE]  
-> fk_demo.py --joints <deg1,deg2,deg3,deg4,deg5,deg6>
+> fk_demo.py --joints <deg1,deg2,deg3,deg4,deg5,deg6>  
 > dry_parse.py --compare <j1,j2,j3,j4,j5,j6,Xmm,Ymm,Zmm,Rx,Ry,Rz>
 
 Run the test with:
