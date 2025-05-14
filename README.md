@@ -49,7 +49,11 @@ ur_kinematics_calib/
 
 ## Dependencies
 
-Managed with [uv](https://github.com/astral-sh/uv):
+Managed with [uv](https://github.com/astral-sh/uv)  
+Install uv via pip:
+```bash
+pip install uv
+```
 
 > [!NOTE]  
 > uv will create a venv and install the required dependencies with: `uv run ..`
