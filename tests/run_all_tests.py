@@ -14,10 +14,11 @@ THRESH_ROT = 0.03  # deg
 
 
 def main():
-    # Locate paths relative to this script
-    root = os.path.dirname(os.path.abspath(__file__))
-    csv_path = os.path.join(root, "data", "joint-eef-data.csv")
-    script_path = os.path.join(root, "dry_parse.py")
+    # Locate data and script paths
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(script_dir)
+    csv_path = os.path.join(project_root, "data", "joint-eef-data.csv")
+    script_path = os.path.join(script_dir, "dry_parse.py")
 
     console = Console()
     table = Table(title="Calibration Test Results")  # build table object[2]
