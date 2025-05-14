@@ -8,4 +8,5 @@ dependencies = [
     "numpy>=2.2.5",
     "rich>=14.0.0",
     "scipy>=1.15.3",
+    "tqdm>=4.67.1",
 ]
