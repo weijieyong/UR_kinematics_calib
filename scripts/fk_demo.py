@@ -6,21 +6,22 @@ import sys
 import argparse
 import numpy as np
 from scipy.spatial.transform import Rotation as R_scipy
+from ur_kinematics_calib.util import load_calibration, load_urcontrol_config
+from ur_kinematics_calib.fk import fk_to_flange, tcp_transform
 
 # Ensure project root is on path to import package
 script_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(script_dir)
 sys.path.insert(0, project_root)
 
-from ur_kinematics_calib.util import load_calibration, load_urcontrol_config
-from ur_kinematics_calib.fk import fk_to_flange, tcp_transform
-
 
 def main():
     parser = argparse.ArgumentParser(description="UR5 FK Demo")
     parser.add_argument(
-        "--joints", "--fk", dest="joints", type=str,
-        help="Comma-separated 6 joint angles (deg) for FK. Defaults to home configuration."
+        "-j",
+        "--joints",
+        type=str,
+        help="Comma-separated 6 joint angles (deg) for FK. Defaults to home configuration.",
     )
     args = parser.parse_args()
 
