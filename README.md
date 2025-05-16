@@ -14,7 +14,7 @@ High-accuracy Python FK & IK solver for UR5 with calibrated DH parameters.
 **Future Plans:**
 - Integrate more robust IK solvers to improve reliability and global convergence
 - Evaluating industry-standard options including:
-  - [QuIK](https://github.com/steffanlloyd/quik) - An ultra-fast and highly robust kinematics library for C++ or ROS2 using DH parameters.
+  - [QuIK](https://github.com/weijieyong/quik) - An ultra-fast and highly robust kinematics library for C++ or ROS2 using DH parameters.
   - [TRAC-IK](https://bitbucket.org/traclabs/trac_ik) - Enhanced solver with better convergence than KDL's default
 - Continue research on analytical methods for calibrated UR robots
 
