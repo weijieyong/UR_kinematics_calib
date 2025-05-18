@@ -1,6 +1,6 @@
 [project]
 name = "ur-kinematics-calib"
-version = "0.1.0"
+version = "0.2.0"
 description = "High-accuracy Python FK & IK solver for UR5 with calibrated DH parameters"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -12,5 +12,5 @@ dependencies = [
 ]
 
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["scikit-build-core>=0.10", "pybind11"]
+build-backend = "scikit_build_core.build"
