@@ -16,6 +16,8 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(script_dir)
 sys.path.insert(0, project_root)
 
+RANDOM_OFFSET = 0.9
+
 
 # Compute per-joint error in radians, wrapped to [–π, π]
 def angular_diff(a, b):
@@ -82,7 +84,16 @@ def main():
     #     low=-np.pi, high=np.pi, size=6
     # )  # random initial guess, for testing
     # q_init = np.deg2rad(np.array([87.84, -110.6, 110.71, -72.87, -68.8, -100.12]))  # testing with some closer initial guess
-    q_init = q_home0  # use home joint angles as initial guess
+    # q_init = q_home0  # use home joint angles as initial guess
+
+    # Set q_init as a small random offset from parsed joint values to test robustness
+    # Generate small random offsets for each joint independently
+    random_offset = np.random.uniform(
+        low=-RANDOM_OFFSET, high=RANDOM_OFFSET, size=6
+    )  # Small random offsets in radians
+    q_init = q_orig + random_offset
+    logging.debug("Random joint offset (rad): %s", np.round(random_offset, 6).tolist())
+
     dh_thetas = q_orig + dt
     T_base_fl = fk_to_flange(eff_a, eff_alpha, eff_d, j_dir, dh_thetas)
     T_target = T_base_fl @ T_fl_tcp
@@ -105,8 +116,8 @@ def main():
     logging.info("Original joints (deg):      %s", np.round(orig_deg, 6).tolist())
     logging.info("IK solution joints (deg):   %s", np.round(sol_deg, 6).tolist())
     logging.info("Joint errors (deg):         %s", np.round(diff_deg, 6).tolist())
-    logging.info("Joint-space norm error (°): %.6f", np.linalg.norm(diff_deg))
-    logging.info("Max joint error (°):        %.6f", np.max(np.abs(diff_deg)))
+    logging.info("Joint-space norm error (°): %.3e", np.linalg.norm(diff_deg))
+    logging.info("Max joint error (°):        %.3e", np.max(np.abs(diff_deg)))
     return 0
 
 
