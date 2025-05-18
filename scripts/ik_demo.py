@@ -11,7 +11,7 @@ from scipy.spatial.transform import Rotation as R_scipy
 
 from ur_kinematics_calib.util import load_calibration, load_urcontrol_config
 from ur_kinematics_calib.fk import tcp_transform
-from ur_kinematics_calib.ik import ik_numerical
+from ur_kinematics_calib.ik import ik_quik
 
 # Ensure project root is on path to import package
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -81,11 +81,16 @@ def main():
     T_target = args.pose
     q_init = q_home0
 
-    q_sol, _ = ik_numerical(
+    q_sol, extra_data = ik_quik(
         eff_a, eff_alpha, eff_d, j_dir, dt, T_fl_tcp, T_target, q_init
     )
+    e_sol, iterations, reason = extra_data
+    
     logging.info("IK Solution:")
     logging.info(f"  Joints (deg): {np.rad2deg(q_sol).round(6).tolist()}")
+    logging.info(f"  Error: {np.linalg.norm(e_sol):.6e}")
+    logging.info(f"  Iterations: {iterations}")
+    logging.info(f"  Status: {reason}")
     return 0
 
 

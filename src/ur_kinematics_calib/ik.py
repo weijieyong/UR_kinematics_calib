@@ -2,6 +2,7 @@ from ur_kinematics_calib.fk import fk_to_flange
 from scipy.spatial.transform import Rotation as R_scipy
 from scipy.optimize import least_squares
 import numpy as np
+import quik_bind as quikpy
 
 def ik_numerical(eff_a, eff_alpha, eff_d, j_dir, dt, T_fl_tcp, T_target, q_init=None):
     """
@@ -26,3 +27,39 @@ def ik_numerical(eff_a, eff_alpha, eff_d, j_dir, dt, T_fl_tcp, T_target, q_init=
 
     res = least_squares(error_func, q_init, xtol=1e-6, ftol=1e-6)
     return res.x, res
+
+def ik_quik(eff_a, eff_alpha, eff_d, j_dir, dt, T_fl_tcp, T_target, q_init=None):
+    """
+    QuIK-based IK solver using Python bindings.
+    Much faster and more robust than the numerical solver.
+    
+    Returns:
+        Tuple: (solution, extra_data)
+            - solution: joint angles (without dt offset)
+            - extra_data: (error, iterations, reason)
+    """
+    if q_init is None:
+        q_init = np.zeros(6)
+    
+    # Create DH parameters in the format QuIK expects [a, alpha, d, theta]
+    dh_params = np.zeros((6, 4))
+    for i in range(6):
+        dh_params[i, 0] = eff_a[i]
+        dh_params[i, 1] = eff_alpha[i]
+        dh_params[i, 2] = eff_d[i]
+        dh_params[i, 3] = dt[i]  # Initial offset (will be overwritten)
+    
+    # All revolute joints for UR robot
+    link_types = np.array([False] * 6, dtype=bool)
+    
+    # Initialize the robot with DH parameters
+    quikpy.init_robot(dh_params, link_types)
+    
+    # Adjust target for the TCP offset
+    T_target_fl = T_target @ np.linalg.inv(T_fl_tcp)
+    
+    # Solve IK
+    q_sol, e_sol, iterations, reason = quikpy.ik(T_target_fl, q_init)
+    
+    # Return solution and additional info
+    return q_sol, (e_sol, iterations, reason)

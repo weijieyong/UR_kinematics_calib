@@ -93,9 +93,23 @@ def compute_forward_kinematics(
 
 
 def solve_inverse_kinematics(
-    poses: List[np.ndarray], initial_guesses: np.ndarray
+    poses: List[np.ndarray], initial_guesses: np.ndarray, T_fl_tcp: np.ndarray = None
 ) -> Tuple[np.ndarray, np.ndarray, List[int], List[str], float]:
-    """Solve inverse kinematics for given poses."""
+    """Solve inverse kinematics for given poses.
+    
+    Args:
+        poses: List of transformation matrices
+        initial_guesses: Initial joint configurations
+        T_fl_tcp: Optional TCP transformation matrix, if not None, the pose target will be adjusted
+    
+    Returns:
+        Tuple containing:
+        - Q_star: Solved joint angles
+        - E_star: Pose errors
+        - iters: Number of iterations for each solution
+        - reasons: Reason messages
+        - elapsed: Time elapsed in microseconds
+    """
     num_samples = len(poses)
     # dof = initial_guesses.shape[0]  # commented out not used
     Q_star = np.zeros_like(initial_guesses)
@@ -106,7 +120,12 @@ def solve_inverse_kinematics(
     start_time = time.perf_counter()
     for i in range(num_samples):
         try:
-            q_sol, e_sol, itr, reason = quikpy.ik(poses[i], initial_guesses[:, i])
+            # Adjust target for the TCP offset if provided
+            target_pose = poses[i]
+            if T_fl_tcp is not None:
+                target_pose = poses[i] @ np.linalg.inv(T_fl_tcp)
+                
+            q_sol, e_sol, itr, reason = quikpy.ik(target_pose, initial_guesses[:, i])
             Q_star[:, i] = q_sol
             E_star[:, i] = e_sol
             iters.append(itr)

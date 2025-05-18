@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 from ur_kinematics_calib.util import load_calibration, load_urcontrol_config
 from ur_kinematics_calib.fk import fk_to_flange, tcp_transform
-from ur_kinematics_calib.ik import ik_numerical
+from ur_kinematics_calib.ik import ik_quik
 
 # Ensure project root is on path to import package
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -99,9 +99,10 @@ def main():
     T_target = T_base_fl @ T_fl_tcp
 
     # Solve IK starting from original joint angles
-    q_sol, _ = ik_numerical(
+    q_sol, extra_data = ik_quik(
         eff_a, eff_alpha, eff_d, j_dir, dt, T_fl_tcp, T_target, q_init=q_init
     )
+    e_sol, iterations, reason = extra_data
 
     # Compare original vs solved joints (degrees)
     diff_rad = angular_diff(q_orig, q_sol)
@@ -118,6 +119,9 @@ def main():
     logging.info("Joint errors (deg):         %s", np.round(diff_deg, 6).tolist())
     logging.info("Joint-space norm error (°): %.3e", np.linalg.norm(diff_deg))
     logging.info("Max joint error (°):        %.3e", np.max(np.abs(diff_deg)))
+    logging.info("IK error:                   %.3e", np.linalg.norm(e_sol))
+    logging.info("IK iterations:              %d", iterations)
+    logging.info("IK status:                  %s", reason)
     return 0
 
 
