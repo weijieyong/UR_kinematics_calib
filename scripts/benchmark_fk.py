@@ -18,13 +18,65 @@ try:
         load_urcontrol_config,
     )
     from ur_kinematics_calib.fk import fk_to_flange
-except ImportError:
-    print("Error: Could not import from ur_kinematics_calib.fk.py.")
-    print(
-        "Make sure 'ur_kinematics_calib' is in the project root and contains 'fk.py' and '__init__.py'."
-    )
+    import quik_bind as quikpy
+except ImportError as e:
+    print(f"Error: {e}")
+    print("Make sure all required modules are installed and in the Python path.")
     print(f"Project root added to sys.path: {project_root}")
     sys.exit(1)
+
+
+def init_quik_robot(eff_a, eff_alpha, eff_d):
+    # Create DH parameter matrix for QuIK (a, alpha, d, theta_offset)
+    dh = np.zeros((6, 4))
+    dh[:, 0] = eff_a
+    dh[:, 1] = eff_alpha
+    dh[:, 2] = eff_d
+    # All joints are revolute
+    link_types = np.zeros(6, dtype=bool)  # False = revolute, True = prismatic
+    quikpy.init_robot(dh, link_types)
+
+
+def benchmark_python_fk(eff_a, eff_alpha, eff_d, j_dir, dt, num_iterations):
+    fk_times = []
+    random_joints = np.random.uniform(-np.pi, np.pi, (num_iterations, 6))
+    
+    for i in tqdm(range(num_iterations), desc="Python FK"):
+        dh_thetas_fk = random_joints[i] + dt
+        start_time = time.perf_counter()
+        _ = fk_to_flange(eff_a, eff_alpha, eff_d, j_dir, dh_thetas_fk)
+        end_time = time.perf_counter()
+        fk_times.append(end_time - start_time)
+    
+    return fk_times
+
+
+def benchmark_quik_fk(dt, num_iterations):
+    fk_times = []
+    random_joints = np.random.uniform(-np.pi, np.pi, (num_iterations, 6))
+    
+    for i in tqdm(range(num_iterations), desc="QuIK FK"):
+        dh_thetas_fk = random_joints[i] + dt
+        start_time = time.perf_counter()
+        _ = quikpy.fkn(dh_thetas_fk)
+        end_time = time.perf_counter()
+        fk_times.append(end_time - start_time)
+    
+    return fk_times
+
+
+def print_stats(times, method):
+    times_ms = np.array(times) * 1000
+    avg_time = np.mean(times_ms)
+    min_time = np.min(times_ms)
+    max_time = np.max(times_ms)
+    std_time = np.std(times_ms)
+    
+    print(f"\n--- {method} Benchmark Results ---")
+    print(f"Average calculation time: {avg_time:.4f} ms")
+    print(f"Min calculation time: {min_time:.4f} ms")
+    print(f"Max calculation time: {max_time:.4f} ms")
+    print(f"Std Dev calculation time: {std_time:.4f} ms")
 
 
 def main():
@@ -42,40 +94,32 @@ def main():
         sys.exit(1)
 
     dt, da, dd, dalpha = load_calibration(c_path)
-    (a0, d0, alpha0, q_home0, j_dir), _ = load_urcontrol_config(
-        u_path
-    )  # tcp_conf not needed for fk_to_flange
+    (a0, d0, alpha0, q_home0, j_dir), _ = load_urcontrol_config(u_path)
 
     eff_a, eff_d, eff_alpha = a0 + da, d0 + dd, alpha0 + dalpha
 
-    print(f"Starting FK benchmark with {num_iterations} iterations...\n")
+    print(f"Starting FK benchmark comparison with {num_iterations} iterations...\n")
     print("Effective D-H (a, d in m; alpha in rad):")
     print(f"  a_eff:     {eff_a.round(6).tolist()}")
     print(f"  d_eff:     {eff_d.round(6).tolist()}")
     print(f"  alpha_eff: {eff_alpha.round(6).tolist()}\n")
 
-    fk_times = []
+    # Initialize QuIK robot
+    init_quik_robot(eff_a, eff_alpha, eff_d)
 
-    for i in tqdm(range(num_iterations), desc="FK computations"):
-        # Generate random joint angles (radians) between -pi and pi for 6 joints
-        random_joints_rad = np.random.uniform(-np.pi, np.pi, 6)
-        dh_thetas_fk = random_joints_rad + dt  # Apply calibration offsets
+    # Run benchmarks
+    python_times = benchmark_python_fk(eff_a, eff_alpha, eff_d, j_dir, dt, num_iterations)
+    quik_times = benchmark_quik_fk(dt, num_iterations)
 
-        start_time = time.perf_counter()
-        _ = fk_to_flange(eff_a, eff_alpha, eff_d, j_dir, dh_thetas_fk)
-        end_time = time.perf_counter()
+    # Print results
+    print_stats(python_times, "Python FK")
+    print_stats(quik_times, "QuIK FK")
 
-        fk_times.append(end_time - start_time)
-
-    average_time_ms = (sum(fk_times) / num_iterations) * 1000
-    min_time_ms = min(fk_times) * 1000
-    max_time_ms = max(fk_times) * 1000
-
-    print("\n--- FK Benchmark Results ---")
-    print(f"Number of iterations: {num_iterations}")
-    print(f"Average FK calculation time: {average_time_ms:.4f} ms")
-    print(f"Min FK calculation time: {min_time_ms:.4f} ms")
-    print(f"Max FK calculation time: {max_time_ms:.4f} ms")
+    # Calculate speedup
+    avg_python = np.mean(python_times)
+    avg_quik = np.mean(quik_times)
+    speedup = avg_python / avg_quik
+    print(f"\nQuIK speedup over Python: {speedup:.2f}x")
 
 
 if __name__ == "__main__":

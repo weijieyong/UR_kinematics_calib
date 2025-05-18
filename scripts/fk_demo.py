@@ -23,6 +23,11 @@ def main():
         type=str,
         help="Comma-separated 6 joint angles (deg) for FK. Defaults to home configuration.",
     )
+    parser.add_argument(
+        "--no-quik",
+        action="store_true",
+        help="Use Python FK implementation instead of QuIK",
+    )
     args = parser.parse_args()
 
     # Load config files
@@ -54,7 +59,7 @@ def main():
         dh_thetas = q_home0 + dt
 
     # Compute FK
-    T_base_fl = fk_to_flange(eff_a, eff_alpha, eff_d, j_dir, dh_thetas)
+    T_base_fl = fk_to_flange(eff_a, eff_alpha, eff_d, j_dir, dh_thetas, use_quik=not args.no_quik)
     T_fl_tcp = tcp_transform(tcp_conf)
     T_base_tcp = T_base_fl @ T_fl_tcp
 
@@ -66,6 +71,10 @@ def main():
     print("Calculated TCP pose:")
     print(f"  Position (mm): {pos_mm.round(4).tolist()}")
     print(f"  Rotation vector (rad): {rotvec_rad.round(6).tolist()}")
+    if not args.no_quik:
+        print("(Using QuIK FK solver)")
+    else:
+        print("(Using Python FK solver)")
 
 
 if __name__ == "__main__":
