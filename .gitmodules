@@ -1,0 +1,3 @@
+[submodule "thirdparty/quik"]
+	path = thirdparty/quik
+	url = https://github.com/weijieyong/quik.git
