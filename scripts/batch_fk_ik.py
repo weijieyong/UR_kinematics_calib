@@ -10,7 +10,6 @@ import numpy as np
 from ur_kinematics_calib.util import load_calibration, load_urcontrol_config
 from ur_kinematics_calib.fk import fk_to_flange, tcp_transform
 from ur_kinematics_calib.ik import ik_quik
-import csv
 from rich.console import Console
 from rich.table import Table
 from rich.text import Text
@@ -29,8 +28,20 @@ def angular_diff(a, b):
     return (raw + np.pi) % (2 * np.pi) - np.pi
 
 
-def process_csv_row(
-    row_str_list,
+def generate_random_joints(num_tests, joint_min_deg, joint_max_deg):
+    """Generate random joint configurations within the specified range."""
+    joint_configs = []
+
+    for _ in range(num_tests):
+        # Generate 6 random joint values within the specified range
+        q_deg = np.random.uniform(low=joint_min_deg, high=joint_max_deg, size=6)
+        joint_configs.append(q_deg)
+
+    return joint_configs
+
+
+def process_joint_config(
+    q_deg,
     eff_a,
     eff_alpha,
     eff_d,
@@ -40,14 +51,8 @@ def process_csv_row(
     verbose_logging,
     random_offset_magnitude,
 ):
-    """Processes a single row of joint data from the CSV."""
-    try:
-        q_deg_list = [float(x.strip()) for x in row_str_list[:6]]
-        q_orig = np.deg2rad(np.array(q_deg_list))
-    except ValueError as e:
-        return {
-            "error": f"Error parsing joint angles: {row_str_list[:6]}. Details: {e}"
-        }
+    """Processes a single joint configuration."""
+    q_orig = np.deg2rad(q_deg)
 
     random_offset_val = np.random.uniform(
         low=-random_offset_magnitude, high=random_offset_magnitude, size=6
@@ -101,7 +106,6 @@ def process_csv_row(
         current_style = "red"
 
     return {
-        "error": None,
         "q_orig_deg": orig_deg_display,
         "q_init_deg": q_init_deg_display,
         "q_sol_deg": sol_deg_display,
@@ -114,12 +118,27 @@ def process_csv_row(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="UR5 IK/FK Check from CSV")
+    parser = argparse.ArgumentParser(
+        description="UR5 IK/FK Check with Random Joint Values"
+    )
     parser.add_argument(
-        "--csv-file",
-        type=Path,
-        default=Path("data/joint-eef-data.csv"),
-        help="Path to CSV file containing joint angles in degrees (first 6 columns, header expected)",
+        "-n",
+        "--num-tests",
+        type=int,
+        default=10,
+        help="Number of random joint configurations to generate and test",
+    )
+    parser.add_argument(
+        "--joint-min-deg",
+        type=float,
+        default=-180.0,
+        help="Minimum joint angle in degrees (default: -180°)",
+    )
+    parser.add_argument(
+        "--joint-max-deg",
+        type=float,
+        default=180.0,
+        help="Maximum joint angle in degrees (default: 180°)",
     )
     parser.add_argument(
         "-c",
@@ -132,18 +151,37 @@ def main():
         "-v", "--verbose", action="store_true", help="Enable detailed logging"
     )
     parser.add_argument(
+        "-q", "--quiet", action="store_true", help="Print only success rate"
+    )
+    parser.add_argument(
+        "-ro",
         "--random-offset",
         type=float,
         default=0.8,
         help="Magnitude of the random offset applied to initial joint angles for IK (default: 0.8 radians)",
     )
-    args = parser.parse_args()
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(levelname)s: %(message)s",
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="Random seed for reproducible results",
     )
+    args = parser.parse_args()
 
-    console = Console()
+    # Set random seed if provided
+    if args.seed is not None:
+        np.random.seed(args.seed)
+
+    # Configure logging - quiet mode takes precedence over verbose
+    if args.quiet:
+        logging.basicConfig(level=logging.ERROR, format="%(levelname)s: %(message)s")
+    else:
+        logging.basicConfig(
+            level=logging.DEBUG if args.verbose else logging.INFO,
+            format="%(levelname)s: %(message)s",
+        )
+
+    console = Console(quiet=args.quiet)
 
     # Load config files
     config_dir = args.config_dir
@@ -163,61 +201,60 @@ def main():
     eff_alpha = alpha0 + dalpha
     T_fl_tcp = tcp_transform(tcp_conf)
 
-    if not args.csv_file.exists():
-        logging.error(f"CSV file not found: {args.csv_file}")
+    # Generate random joint configurations
+    joint_configs = generate_random_joints(
+        args.num_tests, args.joint_min_deg, args.joint_max_deg
+    )
+
+    if not joint_configs:
+        logging.error("Failed to generate any joint configurations")
         return 1
 
+    if not args.quiet:
+        console.print(
+            f"[bold cyan]Generated {len(joint_configs)} random joint configurations for testing[/bold cyan]"
+        )
+
     table = Table(title="IK Batch Processing Results", show_lines=True)
-    table.add_column("Set #", justify="right", style="cyan", no_wrap=True)
+    table.add_column("Test #", justify="right", style="cyan", no_wrap=True)
     table.add_column("q_orig (°)", style="yellow")
     table.add_column("q_init (°)", style="blue")
     table.add_column("q_sol (°)", style="green")
     table.add_column("Error (°)", style="red")
-    # table.add_column("Max Err (°)", justify="right", style="red")
-    # table.add_column("Cart. Err", justify="right", style="magenta")
     table.add_column("Iter.", justify="right", style="cyan")
     table.add_column("IK Status", style="bold")
 
-    with open(args.csv_file, "r", newline="") as f:
-        reader = csv.reader(f)
-        try:
-            header = next(reader)  # Skip header
-            logging.debug(f"Skipped header: {header}")
-            data_rows = list(reader)  # Read all data rows to get a count
-            num_data_rows = len(data_rows)
-            if num_data_rows == 0:
-                logging.error(
-                    f"CSV file {args.csv_file} has no data rows after the header."
-                )
-                console.print(
-                    f"[bold red]Error: CSV file {args.csv_file} has no data rows after the header.[/bold red]"
-                )
-                return 1
-        except StopIteration:
-            logging.error(f"CSV file {args.csv_file} is empty or has no header.")
-            console.print(
-                f"[bold red]Error: CSV file {args.csv_file} is empty or has no header.[/bold red]"
-            )
-            return 1
+    processed_count = 0
+    success_count = 0  # Initialize counter for successful IK
 
-        processed_count = 0
-        success_count = 0  # Initialize counter for successful IK
+    # Use progress bar only in non-quiet mode
+    if args.quiet:
+        # Process without progress bar in quiet mode
+        for i, q_deg in enumerate(joint_configs):
+            result = process_joint_config(
+                q_deg,
+                eff_a,
+                eff_alpha,
+                eff_d,
+                j_dir,
+                dt,
+                T_fl_tcp,
+                args.verbose,
+                args.random_offset,
+            )
+
+            processed_count += 1
+            if result["is_success"]:
+                success_count += 1
+    else:
         with Progress(console=console) as progress:
             task = progress.add_task(
-                "[cyan]Processing CSV rows...", total=num_data_rows
+                "[cyan]Processing joint configurations...", total=len(joint_configs)
             )
 
-            for i, row in enumerate(data_rows):
-                if not row or len(row) < 6:
-                    logging.warning(
-                        f"Skipping malformed or empty row {i + 2} (1-indexed data rows, including header): {row}"
-                    )
-                    progress.update(task, advance=1)
-                    continue
-
-                row_data_str = row[:6]
-                result = process_csv_row(
-                    row_data_str,
+            for i, q_deg in enumerate(joint_configs):
+                result = process_joint_config(
+                    q_deg,
                     eff_a,
                     eff_alpha,
                     eff_d,
@@ -227,13 +264,6 @@ def main():
                     args.verbose,
                     args.random_offset,
                 )
-
-                if result["error"]:
-                    logging.error(
-                        f"Error processing CSV row {i + 2}: {result['error']}"
-                    )
-                    progress.update(task, advance=1)
-                    continue
 
                 processed_count += 1
                 if result["is_success"]:
@@ -246,7 +276,7 @@ def main():
                 # Add to table if failed, or if successful and verbose mode is on
                 if not result["is_success"] or (result["is_success"] and args.verbose):
                     table.add_row(
-                        str(processed_count),
+                        str(i + 1),
                         str(np.round(result["q_orig_deg"], 3).tolist()),
                         str(np.round(result["q_init_deg"], 3).tolist()),
                         str(np.round(result["q_sol_deg"], 3).tolist()),
@@ -257,31 +287,25 @@ def main():
 
                 progress.update(task, advance=1)
 
-        if processed_count == 0:
-            logging.warning(
-                f"No valid joint data successfully processed from {args.csv_file} after the header."
-            )
-            # The previous console print for "No valid joint data found" might be redundant if num_data_rows was 0 earlier.
-            # This condition now means no rows were *successfully* processed, even if there were rows.
-            if (
-                num_data_rows > 0
-            ):  # Only print if there were rows but none were valid for processing
-                console.print(
-                    f"[bold orange_red1]Warning: No valid joint data successfully processed from {args.csv_file} after the header.[/bold orange_red1]"
-                )
-            return 1
-
-    console.print(table)
+    if not args.quiet:
+        console.print(table)
 
     if processed_count > 0:
         success_percentage = (success_count / processed_count) * 100
-        console.print(
-            f"\n[bold]IK Success Rate ({success_count}/{processed_count}):[/bold] [green]{success_percentage:.2f}%[/green] (met BREAKREASON_TOLERANCE AND Joint Error Norm < 1e-3 °)."
-        )
+        if args.quiet:
+            # In quiet mode, print in the format: IK Success Rate (X/Y): Z.ZZ%
+            print(
+                f"IK Success Rate ({success_count}/{processed_count}): {success_percentage:.2f}%"
+            )
+        else:
+            console.print(
+                f"\n[bold]IK Success Rate ({success_count}/{processed_count}):[/bold] [green]{success_percentage:.2f}%[/green] (met BREAKREASON_TOLERANCE AND Joint Error Norm < 1e-3 °)."
+            )
     else:
-        console.print(
-            "\n[bold yellow]No IK attempts were processed to calculate a success rate.[/bold yellow]"
-        )
+        if not args.quiet:
+            console.print(
+                "\n[bold yellow]No IK attempts were processed to calculate a success rate.[/bold yellow]"
+            )
 
     return 0
 
