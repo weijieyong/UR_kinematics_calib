@@ -95,6 +95,9 @@ uv run scripts/ik_demo.py -p="159.13,-317.1,413.36,1.266,-3.32,-0.28"
 # Validate FK->IK roundtrip
 uv run scripts/fk_ik_check.py -j 31.64,-117.58,104.85,-77.19,-82.32,-58.4
 
+# Batch validate FK->IK roundtrip
+uv run scripts/batch_fk_ik.py
+
 # Run all tests
 uv run tests/run_all_tests.py
 
@@ -103,18 +106,19 @@ uv run tests/dry_parse.py --compare 1.54,-28.43,24.41,-130.54,-37.17,-147.01,-87
 ```
 
 > [!TIP]  
-> Command Arguments:   
+> Command Arguments: (use `--help` for more details)  
 > - `fk_demo.py -j <deg1,deg2,deg3,deg4,deg5,deg6>`  
 > - `ik_demo.py -p <x,y,z,rx,ry,rz>`  
 > - `fk_ik_check.py -j <deg1,deg2,deg3,deg4,deg5,deg6>`
+> - `batch_fk_ik.py --random-offset 0.5` (default: 0.8) 
 
 ---
 
 ## Performance Metrics
 
 ### QuIK C++ Implementation (Intel i9-14900K)
-- **IK Solving**: 0.0170 ms average
-- **FK Solving**: 0.0007 ms average
+- **IK Solving**: 0.0170 ms average (~58,824 iterations/second)
+- **FK Solving**: 0.0007 ms average (~1,428,571 iterations/second)
 - **Speed Improvement**: 200x faster IK, 4x faster FK compared to Python
 
 ### Accuracy
