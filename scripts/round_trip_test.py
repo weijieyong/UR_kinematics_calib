@@ -321,7 +321,7 @@ def main() -> int:
                     ]
                     for idx, q in enumerate(q_branches_wrapped):
                         print(
-                            f"    Branch {idx + 1}: {np.round(np.deg2rad(q), 3).tolist()}"
+                            f"    Branch {idx + 1}: {np.round(np.rad2deg(q), 3).tolist()}"
                         )
                 else:
                     print("    No branches found.")
