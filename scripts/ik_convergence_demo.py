@@ -17,6 +17,7 @@ Requires: calibration.conf and urcontrol.conf.UR5 in the configs/ directory.
 import sys
 import logging
 import argparse
+import time
 from pathlib import Path
 import numpy as np
 
@@ -90,8 +91,8 @@ def main():
     T_fl_tcp = tcp_transform(tcp_conf)
 
     stats = {
-        "analytic": {"success": 0, "iters": [], "fail": 0},
-        "random": {"success": 0, "iters": [], "fail": 0},
+        "analytic": {"success": 0, "iters": [], "fail": 0, "times": []},
+        "random": {"success": 0, "iters": [], "fail": 0, "times": []},
     }
     pos_thresh_mm = 0.5
     rot_thresh_deg = 0.1
@@ -104,6 +105,7 @@ def main():
         T_target = T_base_fl @ T_fl_tcp
 
         # Analytic seed
+        start_time_ana = time.time()
         q_branches = analytic_ik_nominal(T_target @ np.linalg.inv(T_fl_tcp))
         if q_branches:
             q_branches_wrapped = [wrap_angles_rad(q) for q in q_branches]
@@ -111,14 +113,22 @@ def main():
         else:
             seed_ana = q_gt_rad.copy()
         # Random seed
+        start_time_rand = time.time()
         seed_rand = np.random.uniform(
             np.deg2rad(args.joint_min_deg), np.deg2rad(args.joint_max_deg), size=6
         )
+        rand_seed_time = time.time() - start_time_rand
 
-        for label, seed in [("analytic", seed_ana), ("random", seed_rand)]:
+        for label, seed, start_time in [("analytic", seed_ana, start_time_ana), 
+                                      ("random", seed_rand, start_time_rand)]:
+            seed_time = time.time() - start_time
+            solve_start_time = time.time()
             q_sol, extra_data = ik_quik(
                 eff_a, eff_alpha, eff_d, j_dir, dt, T_fl_tcp, T_target, q_init=seed
             )
+            solve_time = time.time() - solve_start_time
+            total_time = seed_time + solve_time
+            
             e_sol, iterations, reason = extra_data
             q_sol = wrap_angles_rad(q_sol)
             sol_dh_thetas = q_sol + dt
@@ -133,11 +143,14 @@ def main():
             ):
                 stats[label]["success"] += 1
                 stats[label]["iters"].append(iterations)
+                stats[label]["times"].append(total_time)
             else:
                 stats[label]["fail"] += 1
+                stats[label]["times"].append(total_time)
             if args.verbose:
                 print(
-                    f"Test {i + 1:03d} [{label}] - Converged: {converged}, Pos err: {pos_error_mm:.3f} mm, Rot err: {rot_error_deg:.3f} deg, Iters: {iterations}"
+                    f"Test {i + 1:03d} [{label}] - Converged: {converged}, Pos err: {pos_error_mm:.3f} mm, "
+                    f"Rot err: {rot_error_deg:.3f} deg, Iters: {iterations}, Time: {total_time*1000:.2f} ms"
                 )
 
     print("\n=== IK Convergence Rate Demo ===")
@@ -145,8 +158,10 @@ def main():
         total = stats[label]["success"] + stats[label]["fail"]
         rate = 100.0 * stats[label]["success"] / total if total > 0 else 0.0
         mean_iters = np.mean(stats[label]["iters"]) if stats[label]["iters"] else 0
+        mean_time_ms = np.mean(stats[label]["times"]) * 1000 if stats[label]["times"] else 0
         print(
-            f"{label.title()} seed: Success {stats[label]['success']}/{total} ({rate:.2f}%), Mean iters: {mean_iters:.2f}"
+            f"{label.title()} seed: Success {stats[label]['success']}/{total} ({rate:.2f}%), "
+            f"Mean iters: {mean_iters:.2f}, Mean time: {mean_time_ms:.2f} ms"
         )
     print("Success = converged with pos error < 0.5mm and rot error < 0.1 deg.")
 
