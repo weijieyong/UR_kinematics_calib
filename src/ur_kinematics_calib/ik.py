@@ -208,8 +208,9 @@ def ik_quik(
     q_init: np.ndarray | None = None,
     *,
     use_analytic_seed: bool = True,
-    current_joints: np.ndarray | None = None,  # Add parameter for current joint angles
-) -> tuple[np.ndarray, tuple[float, int, str]]:
+    current_joints: np.ndarray | None = None,
+    error_threshold: float = 1e-3,
+) -> tuple[np.ndarray, tuple[float, int, str, bool]]:
     """
     QuIK-based IK solver using Python bindings.
     Much faster and more robust than the numerical solver.
@@ -223,11 +224,12 @@ def ik_quik(
         q_init: Initial guess for joint angles (if None, will be determined)
         use_analytic_seed: Whether to use analytic IK for initial guess
         current_joints: Current joint angles from robot (if available)
+        error_threshold: Maximum acceptable error for a pose to be considered reachable
         
     Returns:
         Tuple: (solution, extra_data)
             - solution: joint angles (without dt offset)
-            - extra_data: (error, iterations, reason)
+            - extra_data: (error, iterations, reason, is_reachable)
     """
     if q_init is None:
         # Adjust target for the TCP offset (needed for analytic IK too)
@@ -240,6 +242,11 @@ def ik_quik(
             # Use current_joints if available, otherwise fall back to j_dir
             reference_joints = current_joints if current_joints is not None else j_dir
             q_init = select_branch(q_branches, reference_joints)
+            
+            # If analytic IK failed to find any solutions, it might be unreachable
+            if q_init is None or len(q_branches) == 0:
+                logging.warning("Analytic IK found no solutions, target may be unreachable")
+                q_init = np.zeros(6) if reference_joints is None else reference_joints.copy()
         else:
             q_init = np.zeros(6)
     else:
@@ -262,9 +269,49 @@ def ik_quik(
 
     # Solve IK
     q_sol, e_sol, iterations, reason = quikpy.ik(T_target_fl, q_init)
-
-    # Return solution and additional info
-    return q_sol, (e_sol, iterations, reason)
+    
+    # Determine if the pose is reachable based on error and reason
+    is_reachable = True
+    
+    # Check if error exceeds threshold - handle both scalar and array error values
+    if np.isscalar(e_sol):
+        if e_sol > error_threshold:
+            is_reachable = False
+            logging.warning(f"IK solution error ({e_sol:.6f}) exceeds threshold ({error_threshold})")
+    else:
+        # For array error values (e.g., separate position and orientation errors)
+        if np.any(e_sol > error_threshold):
+            is_reachable = False
+            logging.warning(f"IK solution error {e_sol} exceeds threshold ({error_threshold})")
+            logging.debug(f"Position error: {e_sol[:3] if len(e_sol) >= 3 else 'N/A'}")
+            logging.debug(f"Orientation error: {e_sol[3:] if len(e_sol) > 3 else 'N/A'}")
+    
+    # Check termination reason
+    if reason == "BREAKREASON_GRAD_FAILS":
+        is_reachable = False
+        logging.warning("IK solver gradient failed, target likely unreachable")
+    elif reason == "BREAKREASON_MAX_ITER":
+        logging.warning("IK solver reached maximum iterations, solution may be suboptimal")
+        if np.isscalar(e_sol):
+            if e_sol > error_threshold:
+                is_reachable = False
+        else:
+            if np.any(e_sol > error_threshold):
+                is_reachable = False
+    
+    # If solver succeeded but error is still high, pose is likely unreachable
+    if reason == "BREAKREASON_TOLERANCE":
+        if np.isscalar(e_sol):
+            if e_sol > error_threshold:
+                is_reachable = False
+                logging.warning(f"IK solver converged but error remains high ({e_sol:.6f})")
+        else:
+            if np.any(e_sol > error_threshold):
+                is_reachable = False
+                logging.warning(f"IK solver converged but error remains high {e_sol}")
+    
+    # Return solution and additional info including reachability
+    return q_sol, (e_sol, iterations, reason, is_reachable)
 
 def SIGN(x):
     return int(x > 0) - int(x < 0)
