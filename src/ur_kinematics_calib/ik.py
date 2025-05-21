@@ -208,12 +208,22 @@ def ik_quik(
     q_init: np.ndarray | None = None,
     *,
     use_analytic_seed: bool = True,
+    current_joints: np.ndarray | None = None,  # Add parameter for current joint angles
 ) -> tuple[np.ndarray, tuple[float, int, str]]:
     """
     QuIK-based IK solver using Python bindings.
     Much faster and more robust than the numerical solver.
     Optionally uses analytic IK for initial guess.
     
+    Args:
+        eff_a, eff_alpha, eff_d, j_dir: Robot kinematic parameters
+        dt: DH parameter offset
+        T_fl_tcp: Transformation from flange to TCP
+        T_target: Target pose
+        q_init: Initial guess for joint angles (if None, will be determined)
+        use_analytic_seed: Whether to use analytic IK for initial guess
+        current_joints: Current joint angles from robot (if available)
+        
     Returns:
         Tuple: (solution, extra_data)
             - solution: joint angles (without dt offset)
@@ -226,8 +236,10 @@ def ik_quik(
             # Use analytic IK for initial guess
             # analytic_ik_nominal should return a list/array of possible solutions
             q_branches = analytic_ik_nominal(T_target_fl)
-            # select_branch should pick the best branch based on j_dir or other heuristics
-            q_init = select_branch(q_branches, j_dir)
+            # TODO: read current_joints from robot if available
+            # Use current_joints if available, otherwise fall back to j_dir
+            reference_joints = current_joints if current_joints is not None else j_dir
+            q_init = select_branch(q_branches, reference_joints)
         else:
             q_init = np.zeros(6)
     else:
