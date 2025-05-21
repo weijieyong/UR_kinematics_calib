@@ -104,23 +104,39 @@ def main():
     logging.info(
         f"Random current pose (deg): {np.rad2deg(curr_pose_random).round(6).tolist()}"
     )
-    q_init = select_branch(q_branches, curr_pose_random) if q_branches else q_home0
+    # q_init = select_branch(q_branches, curr_pose_random) if q_branches else q_home0
 
-    logging.info(f"Initial guess (deg): {np.rad2deg(q_init).round(6).tolist()}")
+    # logging.info(f"Initial guess (deg): {np.rad2deg(q_init).round(6).tolist()}")
 
     q_sol, extra_data = ik_quik(
-        eff_a, eff_alpha, eff_d, j_dir, dt, T_fl_tcp, T_target, q_init
+        eff_a, eff_alpha, eff_d, j_dir, dt, T_fl_tcp, T_target, q_init=None,
+        use_analytic_seed=True, current_joints=curr_pose_random
     )
-    e_sol, iterations, reason = extra_data
+    e_sol, iterations, reason, is_reachable = extra_data
 
     q_sol_deg = np.rad2deg(q_sol)
     q_sol_deg_wrapped = wrap_angles_deg(q_sol_deg)
 
     logging.info("IK Solution:")
     logging.info(f"  Joints (deg): {q_sol_deg_wrapped.round(6).tolist()}")
-    logging.info(f"  Error: {np.linalg.norm(e_sol):.6e}")
+    logging.info(f"  Error: {np.linalg.norm(e_sol) if np.isscalar(e_sol) else np.linalg.norm(e_sol):.6e}")
     logging.info(f"  Iterations: {iterations}")
     logging.info(f"  Status: {reason}")
+    
+    # Display reachability status
+    if is_reachable:
+        logging.info("  Reachable: Yes")
+    else:
+        logging.warning("  Reachable: No - Target pose is likely unreachable")
+        if args.verbose:
+            if np.isscalar(e_sol):
+                logging.debug(f"  Error value: {e_sol:.6e}")
+            else:
+                pos_err = np.linalg.norm(e_sol[:3]) if len(e_sol) >= 3 else None
+                rot_err = np.linalg.norm(e_sol[3:]) if len(e_sol) > 3 else None
+                logging.debug(f"  Position error: {pos_err:.6e}")
+                logging.debug(f"  Rotation error: {rot_err:.6e}")
+    
     return 0
 
 
