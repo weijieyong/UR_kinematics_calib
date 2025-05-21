@@ -90,16 +90,20 @@ def run_ik_benchmark(solver_name, solver_func, num_iterations, eff_a, eff_alpha,
                     if duration >= max_ik_time_seconds:
                         logging.debug(f"Iteration {i + 1}: IK timed out ({duration:.2f}s).")
             elif solver_name == "IK QuIK":
-                e_sol, iters, reason = result
-                error_norm = np.linalg.norm(e_sol)
-                success = error_norm < 1e-3 and duration < max_ik_time_seconds
+                # Updated unpacking for the new ik_quik return format
+                e_sol, iters, reason, is_reachable = result
+                error_norm = np.linalg.norm(e_sol) if np.isscalar(e_sol) else np.linalg.norm(e_sol)
+                
+                # Use the is_reachable flag from ik_quik and also check duration
+                success = is_reachable and duration < max_ik_time_seconds
                 iterations_count.append(iters)
+                
                 if success:
                     successful_iks += 1
                 else:
                     failed_iks += 1
-                    if error_norm >= 1e-3:
-                        logging.debug(f"Iteration {i + 1}: QuIK error too large: {error_norm:.2e}")
+                    if not is_reachable:
+                        logging.debug(f"Iteration {i + 1}: QuIK reports pose unreachable. Error: {error_norm:.2e}")
                     if duration >= max_ik_time_seconds:
                         logging.debug(f"Iteration {i + 1}: QuIK timed out ({duration:.2f}s).")
                     

@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 import numpy as np
 from scipy.spatial.transform import Rotation as R_scipy
+import time
 
 from ur_kinematics_calib.util import load_calibration, load_urcontrol_config
 from ur_kinematics_calib.fk import tcp_transform
@@ -33,6 +34,12 @@ def parse_pose(pose_str: str) -> np.ndarray:
     if np.linalg.norm(rotvec) > 1e-9:
         T[:3, :3] = R_scipy.from_rotvec(rotvec).as_matrix()
     return T
+
+
+def wrap_angles_deg(angles):
+    """Wrap a list or array of angles in degrees to [-180, 180)."""
+    angles = np.asarray(angles)
+    return ((angles + 180) % 360) - 180
 
 
 def main():
@@ -79,18 +86,57 @@ def main():
 
     # Determine D-H joint thetas
     T_target = args.pose
-    q_init = q_home0
+
+    # Use analytic IK for initial guess (seed)
+    from ur_kinematics_calib.ik import analytic_ik_nominal, select_branch
+
+    start_time = time.time()
+    q_branches = analytic_ik_nominal(T_target @ np.linalg.inv(T_fl_tcp))
+    elapsed_time = time.time() - start_time
+    print(f"analytic_ik_nominal took {elapsed_time * 1000:.3f} ms")
+    print(f"Branches: {len(q_branches)}")
+    for i, q in enumerate(q_branches):
+        q_deg = np.rad2deg(q)
+        q_deg_wrapped = wrap_angles_deg(q_deg)
+        print(f"  Branch {i}: {q_deg_wrapped.round(6).tolist()}")
+    # Generate random 6 joint values in radians for j_dir
+    curr_pose_random = np.random.uniform(-np.pi, np.pi, 6)
+    logging.info(
+        f"Random current pose (deg): {np.rad2deg(curr_pose_random).round(6).tolist()}"
+    )
+    # q_init = select_branch(q_branches, curr_pose_random) if q_branches else q_home0
+
+    # logging.info(f"Initial guess (deg): {np.rad2deg(q_init).round(6).tolist()}")
 
     q_sol, extra_data = ik_quik(
-        eff_a, eff_alpha, eff_d, j_dir, dt, T_fl_tcp, T_target, q_init
+        eff_a, eff_alpha, eff_d, j_dir, dt, T_fl_tcp, T_target, q_init=None,
+        use_analytic_seed=True, current_joints=curr_pose_random
     )
-    e_sol, iterations, reason = extra_data
-    
+    e_sol, iterations, reason, is_reachable = extra_data
+
+    q_sol_deg = np.rad2deg(q_sol)
+    q_sol_deg_wrapped = wrap_angles_deg(q_sol_deg)
+
     logging.info("IK Solution:")
-    logging.info(f"  Joints (deg): {np.rad2deg(q_sol).round(6).tolist()}")
-    logging.info(f"  Error: {np.linalg.norm(e_sol):.6e}")
+    logging.info(f"  Joints (deg): {q_sol_deg_wrapped.round(6).tolist()}")
+    logging.info(f"  Error: {np.linalg.norm(e_sol) if np.isscalar(e_sol) else np.linalg.norm(e_sol):.6e}")
     logging.info(f"  Iterations: {iterations}")
     logging.info(f"  Status: {reason}")
+    
+    # Display reachability status
+    if is_reachable:
+        logging.info("  Reachable: Yes")
+    else:
+        logging.warning("  Reachable: No - Target pose is likely unreachable")
+        if args.verbose:
+            if np.isscalar(e_sol):
+                logging.debug(f"  Error value: {e_sol:.6e}")
+            else:
+                pos_err = np.linalg.norm(e_sol[:3]) if len(e_sol) >= 3 else None
+                rot_err = np.linalg.norm(e_sol[3:]) if len(e_sol) > 3 else None
+                logging.debug(f"  Position error: {pos_err:.6e}")
+                logging.debug(f"  Rotation error: {rot_err:.6e}")
+    
     return 0
 
 
