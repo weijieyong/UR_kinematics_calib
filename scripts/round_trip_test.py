@@ -126,7 +126,7 @@ def process_joint_config(
         q_sol, extra_data = ik_quik(
             eff_a, eff_alpha, eff_d, j_dir, dt, T_fl_tcp, T_target, q_init=seed_value
         )
-        e_sol, iterations, reason = extra_data
+        e_sol, iterations, reason, is_reachable = extra_data  # Updated to unpack is_reachable flag
         q_sol = wrap_angles_rad(q_sol)
         diff_rad = angular_diff(q_orig, q_sol)
         diff_deg = np.rad2deg(diff_rad)
@@ -138,7 +138,7 @@ def process_joint_config(
         pos_error_ok = pos_error_mm < POSITION_ERROR_THRESHOLD_MM
         rot_error_ok = rot_error_deg < ROTATION_ERROR_THRESHOLD_DEG
         converged = reason == "BREAKREASON_TOLERANCE"
-        is_success = pos_error_ok and rot_error_ok and converged
+        is_success = pos_error_ok and rot_error_ok and converged and is_reachable  # Added is_reachable check
         same_branch = is_same_branch(q_orig, q_sol)
         if is_success:
             status_text_str = (
@@ -147,6 +147,8 @@ def process_joint_config(
             current_style = "green"
         else:
             fail_reasons = []
+            if not is_reachable:
+                fail_reasons.append("Pose unreachable")
             if not converged:
                 fail_reasons.append(f"IK: {reason}")
             if not pos_error_ok:
@@ -174,6 +176,7 @@ def process_joint_config(
             "same_branch": same_branch,
             "reason": reason,
             "q_branches": q_branches,
+            "is_reachable": is_reachable,  # Added is_reachable to results
         }
     return results
 
@@ -312,16 +315,17 @@ def main() -> int:
                 print(f"  Rotation Error: {result['rot_error_deg']:.3f} °")
                 print(f"  Iterations: {result['iterations']}")
                 print(f"  Same Branch: {result['same_branch']}")
+                print(f"  Is Reachable: {result['is_reachable']}")  # Added reachability status
                 print(f"  IK Status: {result['status_text_str']}")
                 q_branches = result.get("q_branches", [])
                 print("  All analytic IK branches (deg):")
                 if q_branches:
                     q_branches_wrapped = [
-                        np.deg2rad(wrap_angles_deg(np.rad2deg(q))) for q in q_branches
+                        wrap_angles_deg(np.rad2deg(q)) for q in q_branches
                     ]
                     for idx, q in enumerate(q_branches_wrapped):
                         print(
-                            f"    Branch {idx + 1}: {np.round(np.rad2deg(q), 3).tolist()}"
+                            f"    Branch {idx + 1}: {np.round(q, 3).tolist()}"
                         )
                 else:
                     print("    No branches found.")

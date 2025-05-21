@@ -128,8 +128,8 @@ def main():
             )
             solve_time = time.time() - solve_start_time
             total_time = seed_time + solve_time
-            
-            e_sol, iterations, reason = extra_data
+
+            e_sol, iterations, reason, is_reachable = extra_data
             q_sol = wrap_angles_rad(q_sol)
             sol_dh_thetas = q_sol + dt
             T_sol_fl = fk_to_flange(eff_a, eff_alpha, eff_d, j_dir, sol_dh_thetas)

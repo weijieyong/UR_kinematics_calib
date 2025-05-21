@@ -102,7 +102,7 @@ def main():
     q_sol, extra_data = ik_quik(
         eff_a, eff_alpha, eff_d, j_dir, dt, T_fl_tcp, T_target, q_init=q_init
     )
-    e_sol, iterations, reason = extra_data
+    e_sol, iterations, reason, is_reachable = extra_data
 
     # Compare original vs solved joints (degrees)
     diff_rad = angular_diff(q_orig, q_sol)

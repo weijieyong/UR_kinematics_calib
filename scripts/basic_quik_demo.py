@@ -33,7 +33,7 @@ q_sol, extra_data = ik_quik(
 # )
 
 # Unpack additional information
-error, iterations, reason = extra_data
+error, iterations, reason, is_reachable = extra_data
 
 # Print results
 print(f"Joint angles (radians): {q_sol}")
@@ -41,3 +41,4 @@ print(f"Joint angles (degrees): {np.rad2deg(q_sol)}")
 print(f"Error: {np.linalg.norm(error):.6e}")
 print(f"Iterations: {iterations}")
 print(f"Status: {reason}")
+print(f"Is reachable: {is_reachable}")
