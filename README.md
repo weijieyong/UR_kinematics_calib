@@ -1,4 +1,4 @@
-# UR_kinematics_calib
+# ur-kinematics-calibrated
 
 High-accuracy Python FK & IK solver for UR5 with calibrated DH parameters.
 
@@ -21,7 +21,7 @@ This project provides both Python implementations for forward kinematics (FK) an
 
 ```bash
 # Clone with submodules (recommended)
-git clone --recurse-submodules https://github.com/weijieyong/UR_kinematics_calib.git
+git clone --recurse-submodules https://github.com/weijieyong/ur-kinematics-calibrated.git
 
 # If you cloned without --recurse-submodules
 git submodule update --init --recursive
@@ -31,10 +31,10 @@ git submodule update --init --recursive
 
 ```bash
 # Build the Docker image
-docker build -t ur-kinematics-calib .
+docker build -t ur-kinematics-calibrated .
 
 # Run the container interactively
-docker run -it --rm -v ${PWD}:/app ur-kinematics-calib
+docker run -it --rm -v ${PWD}:/app ur-kinematics-calibrated
 ```
 
 ### Option 2: Install with uv locally
@@ -161,7 +161,7 @@ FK with calibrated DH parameters
 ## Project Structure
 
 ```
-ur_kinematics_calib/
+ur-kinematics-calibrated/
 ├── configs/             # calibration and UR control files
 ├── cpp/                 # C++ source for Python bindings
 │   └── quik_bind/       # QuIK library Python bindings
